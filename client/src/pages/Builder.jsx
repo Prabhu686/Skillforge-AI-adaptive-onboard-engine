@@ -93,7 +93,7 @@ function RemoveBtn({ onClick }) {
 
 // ── Default form state ───────────────────────────────────────────────────────
 const EMPTY = {
-  name: "", email: "", phone: "", linkedin: "", github: "", portfolio: "",
+  name: "", email: "", phone: "", linkedin: "", github: "", portfolio: "", collegeLogo: "",
   education: [{ degree: "", institution: "", score: "", year: "" }],
   experience: [{ company: "", year: "", description: "" }],
   skillsAcquired: "Frontend: \nBackend: \nCloud: ",
@@ -249,15 +249,16 @@ export default function Builder() {
             <div style={{ overflowY: "auto", padding: "2rem 2.5rem", color: "#111",
                           fontFamily: "'Times New Roman', serif", fontSize: "11pt", lineHeight: 1.5 }}>
 
-              {/* Name */}
-              <div style={{ textAlign: "right", fontSize: "20pt", fontWeight: 700, marginBottom: "4px" }}>
-                {form.name || "Your Name"}
-              </div>
-              {/* Contact */}
-              <div style={{ textAlign: "center", fontSize: "9pt", color: "#444", marginBottom: "16px" }}>
-                {[form.phone && `📞 ${form.phone}`, form.email && `✉ ${form.email}`,
-                  form.linkedin && "LinkedIn", form.github && "GitHub", form.portfolio && "Portfolio"]
-                  .filter(Boolean).join("  |  ")}
+              {/* Header: logo left, name+contact right */}
+              <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: "16px" }}>
+                {form.collegeLogo && <img src={form.collegeLogo} alt="college logo" style={{ width: 56, height: 56, objectFit: "contain", flexShrink: 0 }} />}
+                <div style={{ textAlign: "right", flex: 1 }}>
+                  <div style={{ fontSize: "20pt", fontWeight: 700, lineHeight: 1.2 }}>{form.name || "Your Name"}</div>
+                  <div style={{ fontSize: "9pt", color: "#444", marginTop: "4px" }}>
+                    {[form.phone, form.email, form.linkedin && "LinkedIn", form.github && "GitHub", form.portfolio && "Portfolio"]
+                      .filter(Boolean).join("  |  ")}
+                  </div>
+                </div>
               </div>
 
               {/* Section helper */}
@@ -369,6 +370,32 @@ export default function Builder() {
             <Field label="LinkedIn URL" value={form.linkedin}  onChange={v => setF("linkedin", v)} />
             <Field label="GitHub URL"   value={form.github}    onChange={v => setF("github", v)} />
             <Field label="Portfolio URL" value={form.portfolio} onChange={v => setF("portfolio", v)} />
+          </div>
+          <div style={{ marginBottom: "0.9rem" }}>
+            <label style={{ display: "block", fontSize: "0.75rem", fontWeight: 600,
+              color: "var(--muted)", marginBottom: "0.3rem", textTransform: "uppercase", letterSpacing: "0.05em" }}>
+              College Logo (shown beside name)
+            </label>
+            <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
+              <input type="file" accept="image/*"
+                onChange={e => {
+                  const file = e.target.files[0];
+                  if (!file) return;
+                  const reader = new FileReader();
+                  reader.onload = ev => setF("collegeLogo", ev.target.result);
+                  reader.readAsDataURL(file);
+                }}
+                style={{ fontSize: "0.78rem", color: "var(--muted)" }} />
+              {form.collegeLogo && (
+                <>
+                  <img src={form.collegeLogo} alt="logo" style={{ width: 36, height: 36, objectFit: "contain", borderRadius: 4, border: "1px solid var(--border)" }} />
+                  <button onClick={() => setF("collegeLogo", "")}
+                    style={{ background: "transparent", border: "none", color: "#ef4444", cursor: "pointer", fontSize: "0.78rem" }}>
+                    Remove
+                  </button>
+                </>
+              )}
+            </div>
           </div>
 
           {/* Education */}
