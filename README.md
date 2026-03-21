@@ -1,4 +1,4 @@
-# 🧠 SkillForge – AI Adaptive Onboarding Engine
+#  SkillForge – AI Adaptive Onboarding Engine
 
 Upload a resume and a job description. Get your skill gap, INR salary estimate,
 resume score, and a personalised learning roadmap — instantly.
