@@ -16,15 +16,17 @@ public class AnalyzeController {
     private final AnalyzeService        analyzeService;
     private final QuizService           quizService;
     private final ResumeBuilderService  builderService;
+    private final InterviewService      interviewService;
 
     public AnalyzeController(ParserService parser, SkillExtractorService extractor,
                              AnalyzeService analyzeService, QuizService quizService,
-                             ResumeBuilderService builderService) {
-        this.parser         = parser;
-        this.extractor      = extractor;
-        this.analyzeService = analyzeService;
-        this.quizService    = quizService;
-        this.builderService = builderService;
+                             ResumeBuilderService builderService, InterviewService interviewService) {
+        this.parser           = parser;
+        this.extractor        = extractor;
+        this.analyzeService   = analyzeService;
+        this.quizService      = quizService;
+        this.builderService   = builderService;
+        this.interviewService = interviewService;
     }
 
     // POST /api/analyze
@@ -180,6 +182,49 @@ public class AnalyzeController {
     @GetMapping("/health")
     public ResponseEntity<?> health() {
         return ResponseEntity.ok(Map.of("status", "ok"));
+    }
+
+    // ── POST /api/analyze/interview/questions ──────────────────────────────
+    @PostMapping("/interview/questions")
+    public ResponseEntity<?> interviewQuestions(@RequestBody Map<String, Object> body) {
+        try {
+            @SuppressWarnings("unchecked")
+            List<String> skills = (List<String>) body.getOrDefault("skills", List.of());
+            String domain = (String) body.getOrDefault("domain", "General");
+            int count = body.containsKey("count") ? ((Number) body.get("count")).intValue() : 5;
+            return ResponseEntity.ok(Map.of("questions", interviewService.generateQuestions(skills, domain, count)));
+        } catch (Exception e) {
+            return ResponseEntity.status(500).body(Map.of("error", "Failed to generate questions: " + e.getMessage()));
+        }
+    }
+
+    // ── POST /api/analyze/interview/evaluate ──────────────────────────────
+    @PostMapping("/interview/evaluate")
+    public ResponseEntity<?> interviewEvaluate(@RequestBody Map<String, Object> body) {
+        try {
+            String question    = (String) body.getOrDefault("question", "");
+            String idealAnswer = (String) body.getOrDefault("idealAnswer", "");
+            String userAnswer  = (String) body.getOrDefault("userAnswer", "");
+            return ResponseEntity.ok(interviewService.evaluateAnswer(question, idealAnswer, userAnswer));
+        } catch (Exception e) {
+            return ResponseEntity.status(500).body(Map.of("error", "Evaluation failed: " + e.getMessage()));
+        }
+    }
+
+    // ── POST /api/analyze/interview/save ──────────────────────────────────
+    @PostMapping("/interview/save")
+    public ResponseEntity<?> interviewSave(@RequestBody Map<String, Object> body) {
+        try {
+            return ResponseEntity.ok(interviewService.saveResult(body));
+        } catch (Exception e) {
+            return ResponseEntity.status(500).body(Map.of("error", "Save failed: " + e.getMessage()));
+        }
+    }
+
+    // ── GET /api/analyze/interview/history ────────────────────────────────
+    @GetMapping("/interview/history")
+    public ResponseEntity<?> interviewHistory() {
+        return ResponseEntity.ok(interviewService.getHistory());
     }
 
     // Flatten builder form for ATS scoring
