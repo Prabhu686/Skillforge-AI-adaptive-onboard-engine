@@ -4,6 +4,7 @@ const { findGap }         = require("../utils/skillGap");
 const { generateRoadmap } = require("../utils/roadmap");
 const { estimateSalary, scoreResume, getInterviewTips } = require("../utils/insights");
 const { scoreATS, buildResumeDocx } = require("../utils/resumeBuilder");
+const { generateQuiz, evaluateAnswer } = require("../utils/quiz");
 
 async function analyze(req, res) {
   try {
@@ -96,4 +97,25 @@ async function buildDownload(req, res) {
   }
 }
 
-module.exports = { analyze, compare, build, buildDownload };
+// POST /api/analyze/quiz — generate quiz questions from skills
+function quiz(req, res) {
+  try {
+    const { skills = [], count = 10 } = req.body;
+    return res.json({ questions: generateQuiz(skills, count) });
+  } catch (err) {
+    console.error("quiz error:", err);
+    return res.status(500).json({ error: "Quiz generation failed." });
+  }
+}
+
+// POST /api/analyze/quiz/evaluate — evaluate a single answer
+function quizEvaluate(req, res) {
+  try {
+    const { userAnswer, correctAnswer } = req.body;
+    return res.json(evaluateAnswer(userAnswer, correctAnswer));
+  } catch (err) {
+    return res.status(500).json({ error: "Evaluation failed." });
+  }
+}
+
+module.exports = { analyze, compare, build, buildDownload, quiz, quizEvaluate };

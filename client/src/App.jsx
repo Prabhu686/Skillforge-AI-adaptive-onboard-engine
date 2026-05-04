@@ -6,6 +6,7 @@ import Results  from "./pages/Results.jsx";
 import Compare  from "./pages/Compare.jsx";
 import Tips     from "./pages/Tips.jsx";
 import Builder  from "./pages/Builder.jsx";
+import Quiz     from "./pages/Quiz.jsx";
 
 export default function App() {
   return (
@@ -18,6 +19,7 @@ export default function App() {
         <Route path="/compare" element={<Compare />} />
         <Route path="/tips"    element={<Tips />} />
         <Route path="/builder" element={<Builder />} />
+        <Route path="/quiz"    element={<Quiz />} />
       </Routes>
     </BrowserRouter>
   );
