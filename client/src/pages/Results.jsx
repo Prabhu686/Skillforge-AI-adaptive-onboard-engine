@@ -134,6 +134,12 @@ export default function Results() {
                   onClick={() => navigate("/quiz", { state })}>
             Voice Quiz
           </button>
+          <button style={{ background: "#dc2626", color: "#fff", border: "none",
+                           borderRadius: "var(--radius)", padding: "0.6rem 1.1rem",
+                           fontWeight: 600, cursor: "pointer", fontSize: "0.88rem" }}
+                  onClick={() => navigate("/interview", { state })}>
+            AI Interview
+          </button>
           <button style={{ background: "#7c3aed", color: "#fff", border: "none",
                            borderRadius: "var(--radius)", padding: "0.6rem 1.1rem",
                            fontWeight: 600, cursor: "pointer", fontSize: "0.88rem" }}

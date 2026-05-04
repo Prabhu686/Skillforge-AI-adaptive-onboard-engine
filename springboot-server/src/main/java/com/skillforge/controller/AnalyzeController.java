@@ -184,17 +184,19 @@ public class AnalyzeController {
         return ResponseEntity.ok(Map.of("status", "ok"));
     }
 
-    // ── POST /api/analyze/interview/questions ──────────────────────────────
+    // ── POST /api/analyze/interview/questions
     @PostMapping("/interview/questions")
     public ResponseEntity<?> interviewQuestions(@RequestBody Map<String, Object> body) {
         try {
             @SuppressWarnings("unchecked")
-            List<String> skills = (List<String>) body.getOrDefault("skills", List.of());
+            List<String> skills = (List<String>) body.getOrDefault("skills", new ArrayList<>());
             String domain = (String) body.getOrDefault("domain", "General");
             int count = body.containsKey("count") ? ((Number) body.get("count")).intValue() : 5;
-            return ResponseEntity.ok(Map.of("questions", interviewService.generateQuestions(skills, domain, count)));
+            List<Map<String, String>> questions = interviewService.generateQuestions(skills, domain, count);
+            return ResponseEntity.ok(Map.of("questions", questions));
         } catch (Exception e) {
-            return ResponseEntity.status(500).body(Map.of("error", "Failed to generate questions: " + e.getMessage()));
+            String msg = e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName();
+            return ResponseEntity.status(500).body(Map.of("error", "Failed to generate questions: " + msg));
         }
     }
 

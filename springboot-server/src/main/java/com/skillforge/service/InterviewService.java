@@ -33,6 +33,7 @@ public class InterviewService {
 
     // ── Generate interview questions via OpenAI ────────────────────────────
     public List<Map<String, String>> generateQuestions(List<String> skills, String domain, int count) {
+        if (skills == null) skills = new ArrayList<>();
         if (openAiKey == null || openAiKey.isBlank()) {
             return generateFallbackQuestions(skills, domain, count);
         }
