@@ -1,0 +1,12 @@
+com\skillforge\service\ResumeBuilderService.class
+com\skillforge\model\QuizResult.class
+com\skillforge\model\AnalysisResult.class
+com\skillforge\config\CorsConfig.class
+com\skillforge\service\SkillExtractorService.class
+com\skillforge\service\ParserService.class
+com\skillforge\controller\AnalyzeController.class
+com\skillforge\repository\QuizResultRepository.class
+com\skillforge\SkillforgeApplication.class
+com\skillforge\service\QuizService.class
+com\skillforge\repository\AnalysisResultRepository.class
+com\skillforge\service\AnalyzeService.class
