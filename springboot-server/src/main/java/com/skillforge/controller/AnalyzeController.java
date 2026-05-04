@@ -189,14 +189,17 @@ public class AnalyzeController {
     public ResponseEntity<?> interviewQuestions(@RequestBody Map<String, Object> body) {
         try {
             @SuppressWarnings("unchecked")
-            List<String> skills = (List<String>) body.getOrDefault("skills", new ArrayList<>());
-            String domain = (String) body.getOrDefault("domain", "General");
+            List<String> skills = body.get("skills") instanceof List<?> l
+                ? l.stream().map(Object::toString).collect(java.util.stream.Collectors.toList())
+                : new ArrayList<>();
+            String domain = body.getOrDefault("domain", "General").toString();
             int count = body.containsKey("count") ? ((Number) body.get("count")).intValue() : 5;
             List<Map<String, String>> questions = interviewService.generateQuestions(skills, domain, count);
             return ResponseEntity.ok(Map.of("questions", questions));
         } catch (Exception e) {
-            String msg = e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName();
-            return ResponseEntity.status(500).body(Map.of("error", "Failed to generate questions: " + msg));
+            e.printStackTrace();
+            String msg = e.getMessage() != null ? e.getMessage() : e.getClass().getName();
+            return ResponseEntity.status(500).body(Map.of("error", msg));
         }
     }
 

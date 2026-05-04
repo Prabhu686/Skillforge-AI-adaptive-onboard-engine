@@ -5,7 +5,9 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.skillforge.model.InterviewResult;
 import com.skillforge.repository.InterviewResultRepository;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.codec.ClientCodecConfigurer;
 import org.springframework.stereotype.Service;
+import org.springframework.web.reactive.function.client.ExchangeStrategies;
 import org.springframework.web.reactive.function.client.WebClient;
 
 import java.util.*;
@@ -25,6 +27,9 @@ public class InterviewService {
 
     private final WebClient webClient = WebClient.builder()
             .baseUrl("https://api.openai.com/v1")
+            .exchangeStrategies(ExchangeStrategies.builder()
+                .codecs(ClientCodecConfigurer::defaultCodecs)
+                .build())
             .build();
 
     public InterviewService(InterviewResultRepository repo) {
@@ -185,8 +190,7 @@ public class InterviewService {
 
     // ── Fallbacks (no OpenAI key) ─────────────────────────────────────────
     private List<Map<String, String>> generateFallbackQuestions(List<String> skills, String domain, int count) {
-        List<Map<String, String>> questions = new ArrayList<>();
-        List<String[]> bank = List.of(
+        List<String[]> bank = new ArrayList<>(List.of(
             new String[]{"Explain the difference between REST and GraphQL.", "REST uses fixed endpoints per resource. GraphQL uses a single endpoint and lets clients request exactly the data they need, reducing over-fetching.", "API Design", "Medium"},
             new String[]{"What is the difference between SQL and NoSQL databases?", "SQL databases are relational with fixed schemas. NoSQL databases are flexible, schema-less, and better for unstructured or rapidly changing data.", "Database", "Easy"},
             new String[]{"What is Docker and why is it used?", "Docker is a containerisation platform that packages applications with their dependencies into containers, ensuring consistent environments across development and production.", "DevOps", "Easy"},
@@ -194,9 +198,12 @@ public class InterviewService {
             new String[]{"What is CI/CD and why is it important?", "CI/CD automates building, testing, and deploying code. It reduces manual errors, speeds up delivery, and ensures code is always in a deployable state.", "DevOps", "Medium"},
             new String[]{"What is the event loop in Node.js?", "The event loop allows Node.js to perform non-blocking I/O by offloading operations to the system kernel and executing callbacks when operations complete.", "Backend", "Medium"},
             new String[]{"What is the virtual DOM in React?", "The virtual DOM is an in-memory representation of the real DOM. React uses it to compute minimal changes before updating the actual DOM, improving performance.", "Frontend", "Easy"},
-            new String[]{"Explain overfitting in machine learning.", "Overfitting occurs when a model learns training data too well including noise, causing poor generalisation to new unseen data. It is addressed with regularisation and more data.", "AI/ML", "Medium"}
-        );
+            new String[]{"Explain overfitting in machine learning.", "Overfitting occurs when a model learns training data too well including noise, causing poor generalisation to new unseen data. It is addressed with regularisation and more data.", "AI/ML", "Medium"},
+            new String[]{"What is the difference between authentication and authorisation?", "Authentication verifies who you are. Authorisation determines what you are allowed to do. JWT handles both by encoding user identity and roles in a token.", "Security", "Easy"},
+            new String[]{"What is database indexing?", "An index is a data structure that speeds up data retrieval at the cost of extra storage and slower writes. B-tree indexes are most common in relational databases.", "Database", "Medium"}
+        ));
         Collections.shuffle(bank);
+        List<Map<String, String>> questions = new ArrayList<>();
         for (int i = 0; i < Math.min(count, bank.size()); i++) {
             String[] q = bank.get(i);
             Map<String, String> item = new LinkedHashMap<>();
