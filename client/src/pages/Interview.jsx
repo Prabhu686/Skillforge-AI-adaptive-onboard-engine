@@ -1,23 +1,115 @@
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 
-const STEPS = { INTRO: "intro", INTERVIEW: "interview", REPORT: "report" };
+const SYSTEM_INTRO = (domain, skills) =>
+  `Hi! I'm your AI interviewer for the **${domain}** domain. I'll ask you technical questions one by one based on your skill profile${skills.length ? ` (${skills.slice(0, 4).join(", ")}${skills.length > 4 ? "…" : ""})` : ""}.\n\nType your answer and press **Send** — I'll give you instant feedback and move to the next question. Let's begin! 🚀`;
 
-function ScoreRing({ score }) {
-  const r = 36, circ = 2 * Math.PI * r;
-  const color = score >= 70 ? "#22c55e" : score >= 40 ? "#f59e0b" : "#ef4444";
+const QUESTION_BANK = {
+  Frontend:  ["What is the virtual DOM and why does React use it?","Explain closures in JavaScript with an example.","What is the difference between flexbox and CSS grid?","What are React hooks and why were they introduced?","Explain event delegation in JavaScript.","What is the difference between == and === in JavaScript?","How does the browser render a webpage?"],
+  Backend:   ["What is the event loop in Node.js?","How do you handle errors in Express middleware?","Explain the difference between REST and GraphQL.","What is JWT and how does authentication work with it?","What is the N+1 query problem and how do you fix it?","Explain database indexing and when to use it.","What is the difference between SQL and NoSQL?"],
+  Database:  ["What is the difference between INNER JOIN and LEFT JOIN?","What are ACID properties in a database?","Explain database normalization.","What is a database index and how does it work?","When would you use NoSQL over SQL?","What is a transaction and why is it important?","Explain the CAP theorem."],
+  DevOps:    ["What is the difference between a Docker image and a container?","Explain the stages of a CI/CD pipeline.","What are Kubernetes Pods and Deployments?","What is Infrastructure as Code?","Explain the difference between Docker and a VM.","What is a load balancer and when do you use one?","What is blue-green deployment?"],
+  AI:        ["What is overfitting and how do you prevent it?","Explain the bias-variance trade-off.","What is backpropagation in neural networks?","What is the attention mechanism in transformers?","Explain the difference between supervised and unsupervised learning.","What metrics would you use to evaluate a classification model?","What is gradient descent?"],
+  General:   ["What is Big-O notation? Give examples.","When would you use a hash map vs an array?","Explain the difference between synchronous and asynchronous code.","What is the difference between authentication and authorisation?","How would you design a URL shortener?","What is REST API?","Explain object-oriented programming principles."],
+};
+
+const IDEAL = {
+  // Frontend
+  "What is the virtual DOM and why does React use it?": "The virtual DOM is an in-memory copy of the real DOM. React uses it to compute the minimal set of changes needed before updating the actual DOM, improving performance.",
+  "Explain closures in JavaScript with an example.": "A closure is a function that retains access to its outer scope variables after the outer function has returned. Example: function counter() { let n=0; return () => ++n; }",
+  "What is the difference between flexbox and CSS grid?": "Flexbox is one-dimensional (row or column). Grid is two-dimensional (rows and columns). Use flexbox for component-level layout, grid for page-level layout.",
+  "What are React hooks and why were they introduced?": "Hooks like useState and useEffect let functional components use state and lifecycle features without writing class components, simplifying code.",
+  "Explain event delegation in JavaScript.": "Event delegation attaches a single event listener to a parent element instead of each child. Events bubble up from the target to the parent, where you check event.target to identify the source.",
+  "What is the difference between == and === in JavaScript?": "== compares values with type coercion (e.g. '5' == 5 is true). === compares both value and type strictly (e.g. '5' === 5 is false). Always prefer ===.",
+  "How does the browser render a webpage?": "The browser parses HTML into a DOM tree, CSS into a CSSOM, combines them into a render tree, performs layout to calculate positions, then paints pixels to the screen.",
+  // Backend
+  "What is the event loop in Node.js?": "The event loop allows Node.js to perform non-blocking I/O by offloading operations to the OS and executing callbacks when they complete, on a single thread.",
+  "How do you handle errors in Express middleware?": "Use a 4-parameter middleware (err, req, res, next) placed after all routes. Call next(err) from any route to pass errors to it.",
+  "Explain the difference between REST and GraphQL.": "REST uses fixed endpoints per resource. GraphQL uses a single endpoint where clients specify exactly the data they need, reducing over-fetching.",
+  "What is JWT and how does authentication work with it?": "JWT is a signed token containing a payload. The server issues it on login; the client sends it in the Authorization header; the server verifies the signature.",
+  "What is the N+1 query problem and how do you fix it?": "N+1 occurs when fetching a list runs 1 query then N more queries for each item's related data. Fix it using eager loading (JOIN or include) to fetch everything in one query.",
+  "Explain database indexing and when to use it.": "An index is a data structure (usually B-tree) that speeds up lookups at the cost of extra storage and slower writes. Use it on columns frequently used in WHERE, JOIN, or ORDER BY clauses.",
+  "What is the difference between SQL and NoSQL?": "SQL databases are relational with fixed schemas and ACID transactions, ideal for structured data. NoSQL databases are schema-flexible, scale horizontally, and suit unstructured or rapidly changing data.",
+  // Database
+  "What is the difference between INNER JOIN and LEFT JOIN?": "INNER JOIN returns only rows with matches in both tables. LEFT JOIN returns all rows from the left table with NULLs where there is no match on the right.",
+  "What are ACID properties in a database?": "Atomicity, Consistency, Isolation, Durability — they guarantee that database transactions are processed reliably even in case of errors or crashes.",
+  "Explain database normalization.": "Normalization organizes a database to reduce redundancy and improve integrity. It involves splitting tables into smaller ones and defining relationships, following normal forms (1NF, 2NF, 3NF).",
+  "What is a database index and how does it work?": "An index creates a sorted data structure on a column so the database can find rows without scanning the entire table, similar to a book's index. Trade-off: faster reads, slower writes.",
+  "When would you use NoSQL over SQL?": "Use NoSQL when you need flexible schemas, horizontal scaling, or are storing unstructured data like documents, key-value pairs, or time-series data. SQL is better for complex queries and strict consistency.",
+  "What is a transaction and why is it important?": "A transaction is a sequence of operations treated as a single unit — either all succeed (commit) or all fail (rollback). It ensures data integrity using ACID properties.",
+  "Explain the CAP theorem.": "CAP theorem states a distributed system can only guarantee two of three: Consistency (all nodes see the same data), Availability (every request gets a response), Partition tolerance (system works despite network splits).",
+  // DevOps
+  "What is the difference between a Docker image and a container?": "An image is a read-only template with the app and its dependencies. A container is a running instance of that image with its own isolated filesystem.",
+  "Explain the stages of a CI/CD pipeline.": "Typical stages: Source (code commit triggers pipeline), Build (compile/package), Test (run automated tests), Deploy to staging, then Deploy to production. Each stage gates the next.",
+  "What are Kubernetes Pods and Deployments?": "A Pod is the smallest deployable unit in Kubernetes, containing one or more containers. A Deployment manages a set of identical Pods, handling rolling updates and self-healing.",
+  "What is Infrastructure as Code?": "IaC means managing and provisioning infrastructure through code (e.g. Terraform, CloudFormation) instead of manual processes, enabling version control, repeatability, and automation.",
+  "Explain the difference between Docker and a VM.": "A VM virtualizes the entire OS including the kernel, making it heavy. Docker containers share the host OS kernel and only isolate the application layer, making them lightweight and faster to start.",
+  "What is a load balancer and when do you use one?": "A load balancer distributes incoming traffic across multiple servers to prevent overload, improve availability, and enable horizontal scaling. Use it when a single server cannot handle all traffic.",
+  "What is blue-green deployment?": "Blue-green deployment runs two identical environments (blue = live, green = new version). Traffic is switched to green after testing. If issues arise, you instantly roll back to blue with zero downtime.",
+  // AI
+  "What is overfitting and how do you prevent it?": "Overfitting is when a model memorises training data including noise and performs poorly on new data. Prevent it with regularisation, dropout, cross-validation, and more training data.",
+  "Explain the bias-variance trade-off.": "Bias is error from wrong assumptions (underfitting). Variance is error from sensitivity to training data (overfitting). The trade-off is finding the right model complexity that minimises both.",
+  "What is backpropagation in neural networks?": "Backpropagation calculates the gradient of the loss function with respect to each weight by applying the chain rule backward through the network, enabling gradient descent to update weights.",
+  "What is the attention mechanism in transformers?": "Attention allows the model to weigh the relevance of each token to every other token in the sequence, computing a weighted sum of values. This replaces sequential processing with parallel context-aware representations.",
+  "Explain the difference between supervised and unsupervised learning.": "Supervised learning trains on labelled data to predict outputs (e.g. classification). Unsupervised learning finds patterns in unlabelled data (e.g. clustering, dimensionality reduction).",
+  "What metrics would you use to evaluate a classification model?": "Accuracy, Precision (TP/TP+FP), Recall (TP/TP+FN), F1-score (harmonic mean of precision and recall), and AUC-ROC. Use F1 and AUC when classes are imbalanced.",
+  "What is gradient descent?": "Gradient descent is an optimization algorithm that iteratively adjusts model weights in the direction of the negative gradient of the loss function to minimize error. Learning rate controls step size.",
+  // General
+  "What is Big-O notation? Give examples.": "Big-O describes the upper bound of an algorithm's time or space complexity as input grows. O(1) is constant, O(log n) is logarithmic, O(n) is linear, O(n²) is quadratic.",
+  "When would you use a hash map vs an array?": "Use a hash map for O(1) average key-based lookups, insertions, and deletions. Use an array for ordered data, index-based access, or when memory efficiency and iteration speed matter.",
+  "Explain the difference between synchronous and asynchronous code.": "Synchronous code executes line by line, blocking until each operation completes. Asynchronous code allows other operations to run while waiting (e.g. I/O), using callbacks, promises, or async/await.",
+  "What is the difference between authentication and authorisation?": "Authentication verifies who you are (e.g. login with password). Authorisation determines what you are allowed to do (e.g. admin vs user permissions). Authentication always comes first.",
+  "How would you design a URL shortener?": "Generate a unique short code (base62 encoding of an auto-increment ID), store the mapping in a database indexed on the short code, add a Redis cache for hot URLs, and use a load balancer for scale.",
+  "What is REST API?": "REST is an architectural style using standard HTTP methods — GET (read), POST (create), PUT (update), DELETE (remove) — on resources identified by URLs, with stateless communication.",
+  "Explain object-oriented programming principles.": "OOP has four pillars: Encapsulation (bundling data and methods), Inheritance (child class reuses parent), Polymorphism (same interface, different behaviour), Abstraction (hiding implementation details).",
+};
+
+function scoreAnswer(ideal, user) {
+  const keywords = ideal.toLowerCase().replace(/[^a-z0-9\s]/g, " ").split(/\s+/).filter(w => w.length > 3);
+  const u = user.toLowerCase();
+  const hits = keywords.filter(k => u.includes(k)).length;
+  return keywords.length ? Math.min(Math.round((hits / keywords.length) * 100), 100) : 50;
+}
+
+function getFeedback(score, ideal) {
+  if (score >= 75) return { label: "Great answer! ✅", color: "var(--green)", tip: null };
+  if (score >= 45) return { label: "Partially correct 🟡", color: "var(--yellow)", tip: `💡 Missing point: ${ideal.split(".")[0]}.` };
+  return { label: "Needs improvement ❌", color: "var(--red)", tip: `✅ Correct answer: ${ideal}` };
+}
+
+function Bubble({ msg }) {
+  const isAI = msg.role === "ai";
   return (
-    <div style={{ position: "relative", width: 88, height: 88 }}>
-      <svg width="88" height="88" style={{ transform: "rotate(-90deg)" }}>
-        <circle cx="44" cy="44" r={r} fill="none" stroke="var(--border)" strokeWidth="7" />
-        <circle cx="44" cy="44" r={r} fill="none" stroke={color} strokeWidth="7"
-          strokeDasharray={`${(score / 100) * circ} ${circ}`} strokeLinecap="round"
-          style={{ transition: "stroke-dasharray 0.6s ease" }} />
-      </svg>
-      <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column",
-                    alignItems: "center", justifyContent: "center" }}>
-        <span style={{ fontWeight: 900, fontSize: "1.2rem", lineHeight: 1, color }}>{score}</span>
-        <span style={{ fontSize: "0.6rem", color: "var(--muted)" }}>/ 100</span>
+    <div style={{ display: "flex", justifyContent: isAI ? "flex-start" : "flex-end", marginBottom: "1rem" }}>
+      {isAI && (
+        <div style={{ width: 32, height: 32, borderRadius: "50%", background: "var(--accent)",
+                      display: "flex", alignItems: "center", justifyContent: "center",
+                      fontSize: "0.8rem", fontWeight: 800, color: "#fff", flexShrink: 0,
+                      marginRight: "0.6rem", marginTop: "2px" }}>AI</div>
+      )}
+      <div style={{
+        maxWidth: "75%", padding: "0.75rem 1rem", borderRadius: isAI ? "4px 16px 16px 16px" : "16px 4px 16px 16px",
+        background: isAI ? "var(--surface)" : "var(--accent)",
+        border: isAI ? "1px solid var(--border)" : "none",
+        color: "var(--text)", fontSize: "0.9rem", lineHeight: 1.6,
+      }}>
+        {msg.text.split("**").map((part, i) =>
+          i % 2 === 1 ? <strong key={i}>{part}</strong> : <span key={i}>{part}</span>
+        )}
+        {msg.score != null && (
+          <div style={{ marginTop: "0.5rem", paddingTop: "0.5rem", borderTop: "1px solid var(--border)" }}>
+            <span style={{ fontWeight: 700, color: msg.scoreColor, fontSize: "0.85rem" }}>
+              Score: {msg.score}/100 — {msg.scoreLabel}
+            </span>
+            {msg.tip && (
+              <div style={{ marginTop: "0.4rem", padding: "0.5rem 0.75rem",
+                            background: msg.score < 45 ? "#450a0a44" : "#451a0344",
+                            borderRadius: "6px", borderLeft: `3px solid ${msg.score < 45 ? "var(--red)" : "var(--yellow)"}` }}>
+                <p style={{ fontSize: "0.8rem", color: "var(--text)", margin: 0, lineHeight: 1.5 }}>{msg.tip}</p>
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );
@@ -26,353 +118,146 @@ function ScoreRing({ score }) {
 export default function Interview() {
   const { state }  = useLocation();
   const navigate   = useNavigate();
-  const fromResult = state?.resumeSkills ?? [];
   const domain     = state?.salary?.domain ?? "General";
+  const skills     = state?.resumeSkills ?? [];
 
-  const [step,        setStep]        = useState(STEPS.INTRO);
-  const [questions,   setQuestions]   = useState([]);
-  const [current,     setCurrent]     = useState(0);
-  const [userAnswer,  setUserAnswer]  = useState("");
-  const [answers,     setAnswers]     = useState([]);
-  const [feedback,    setFeedback]    = useState(null);
-  const [loading,     setLoading]     = useState(false);
-  const [error,       setError]       = useState("");
-  const [count,       setCount]       = useState(5);
+  const questions  = useRef([...(QUESTION_BANK[domain] ?? QUESTION_BANK.General)].sort(() => Math.random() - 0.5));
+  const qIndex     = useRef(0);
 
-  // ── Start interview ──────────────────────────────────────────────────────
-  async function startInterview() {
+  const [messages, setMessages] = useState([
+    { role: "ai", text: SYSTEM_INTRO(domain, skills) },
+    { role: "ai", text: `**Question 1:** ${questions.current[0]}` },
+  ]);
+  const [input,   setInput]   = useState("");
+  const [loading, setLoading] = useState(false);
+  const [done,    setDone]    = useState(false);
+  const bottomRef = useRef(null);
+  const textareaRef = useRef(null);
+
+  useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages]);
+
+  function pushMsg(msg) { setMessages(prev => [...prev, msg]); }
+
+  async function send() {
+    const text = input.trim();
+    if (!text || loading) return;
+    setInput("");
     setLoading(true);
-    setError("");
-    try {
-      const res = await fetch("/api/analyze/interview/questions", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ skills: fromResult, domain, count }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Failed to load questions");
-      setQuestions(data.questions);
-      setCurrent(0);
-      setAnswers([]);
-      setFeedback(null);
-      setUserAnswer("");
-      setStep(STEPS.INTERVIEW);
-    } catch (e) {
-      setError(e.message);
-    } finally {
-      setLoading(false);
-    }
-  }
 
-  // ── Submit answer ────────────────────────────────────────────────────────
-  async function submitAnswer() {
-    if (!userAnswer.trim()) return;
-    setLoading(true);
-    try {
-      const q = questions[current];
-      const res = await fetch("/api/analyze/interview/evaluate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          question:    q.question,
-          idealAnswer: q.idealAnswer,
-          userAnswer:  userAnswer.trim(),
-        }),
-      });
-      const fb = await res.json();
-      setFeedback(fb);
-      setAnswers(prev => [...prev, { ...q, userAnswer: userAnswer.trim(), ...fb }]);
-    } catch (e) {
-      setError("Evaluation failed. Please try again.");
-    } finally {
-      setLoading(false);
-    }
-  }
+    pushMsg({ role: "user", text });
 
-  // ── Next question ────────────────────────────────────────────────────────
-  function nextQuestion() {
-    if (current + 1 >= questions.length) {
-      finishInterview();
+    const q = questions.current[qIndex.current];
+    const ideal = IDEAL[q] ?? "Focus on the core concept with a clear explanation and example.";
+    const score = scoreAnswer(ideal, text);
+    const { label, color, tip } = getFeedback(score, ideal);
+
+    // small delay for natural feel
+    await new Promise(r => setTimeout(r, 600));
+
+    pushMsg({ role: "ai", text: score >= 75 ? "Well done! 🎯" : score >= 45 ? "Good attempt!" : "Let me help you with that.", score, scoreColor: color, scoreLabel: label, tip });
+
+    qIndex.current += 1;
+    const next = questions.current[qIndex.current];
+
+    await new Promise(r => setTimeout(r, 400));
+
+    if (next) {
+      pushMsg({ role: "ai", text: `**Question ${qIndex.current + 1}:** ${next}` });
     } else {
-      setCurrent(c => c + 1);
-      setUserAnswer("");
-      setFeedback(null);
+      pushMsg({ role: "ai", text: "That's all the questions! 🎉 Great session. Click **View Report** to see your full performance summary." });
+      setDone(true);
     }
+
+    setLoading(false);
+    textareaRef.current?.focus();
   }
 
-  // ── Finish & save ────────────────────────────────────────────────────────
-  async function finishInterview() {
-    setStep(STEPS.REPORT);
-    try {
-      await fetch("/api/analyze/interview/save", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ skills: fromResult, domain, answers }),
-      });
-    } catch { /* non-critical */ }
+  function handleKey(e) {
+    if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); }
   }
 
-  const overallScore = answers.length
-    ? Math.round(answers.reduce((s, a) => s + (a.score ?? 0), 0) / answers.length)
-    : 0;
+  const scores = messages.filter(m => m.score != null).map(m => m.score);
+  const overall = scores.length ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) : 0;
 
-  const weakAreas = [...new Set(answers.filter(a => (a.score ?? 0) < 50).map(a => a.skill))];
+  return (
+    <div style={{ display: "flex", flexDirection: "column", height: "calc(100vh - 56px)", maxWidth: 780, margin: "0 auto", padding: "0 1rem" }}>
 
-  // ── INTRO ────────────────────────────────────────────────────────────────
-  if (step === STEPS.INTRO) return (
-    <div style={{ maxWidth: 600, margin: "0 auto", padding: "4rem 1.5rem", textAlign: "center" }}>
-      <h1 style={{ fontSize: "1.8rem", fontWeight: 800, marginBottom: "0.5rem" }}>
-        AI Mock Interview
-      </h1>
-      <p style={{ color: "var(--muted)", marginBottom: "2rem", fontSize: "0.92rem" }}>
-        {fromResult.length > 0
-          ? `Tailored to your ${domain} skill profile — ${fromResult.length} skills detected.`
-          : "Answer AI-generated technical questions and get instant feedback."}
-      </p>
-
-      <div className="card" style={{ marginBottom: "1.5rem", textAlign: "left" }}>
-        <p style={{ fontWeight: 700, marginBottom: "1rem", fontSize: "0.9rem" }}>How it works</p>
-        {["AI generates questions based on your skill gap",
-          "Answer each question in your own words",
-          "Get instant AI feedback and score per answer",
-          "Receive a full performance report at the end"].map((t, i) => (
-          <div key={i} style={{ display: "flex", gap: "0.75rem", marginBottom: "0.6rem",
-                                alignItems: "flex-start" }}>
-            <span style={{ background: "var(--accent)", color: "#fff", borderRadius: "50%",
-                           width: 22, height: 22, display: "flex", alignItems: "center",
-                           justifyContent: "center", fontSize: "0.72rem", fontWeight: 700,
-                           flexShrink: 0 }}>{i + 1}</span>
-            <span style={{ fontSize: "0.88rem", color: "var(--muted)", lineHeight: 1.5 }}>{t}</span>
-          </div>
-        ))}
-      </div>
-
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "center",
-                    gap: "1rem", marginBottom: "1.5rem" }}>
-        <label style={{ fontSize: "0.88rem", color: "var(--muted)" }}>Number of questions:</label>
-        {[3, 5, 8, 10].map(n => (
-          <button key={n} onClick={() => setCount(n)}
-            style={{ padding: "0.35rem 0.9rem", borderRadius: "999px",
-                     border: "1px solid var(--border)", cursor: "pointer",
-                     background: count === n ? "var(--accent)" : "var(--surface)",
-                     color: count === n ? "#fff" : "var(--muted)",
-                     fontWeight: 600, fontSize: "0.85rem" }}>
-            {n}
-          </button>
-        ))}
-      </div>
-
-      {error && <p style={{ color: "var(--red)", marginBottom: "1rem", fontSize: "0.88rem" }}>{error}</p>}
-
-      <button className="btn-primary" onClick={startInterview} disabled={loading}
-              style={{ width: "100%", padding: "0.85rem", fontSize: "1rem" }}>
-        {loading ? "Generating questions..." : "Start Interview"}
-      </button>
-
-      {state && (
-        <button onClick={() => navigate("/results", { state })}
-          style={{ marginTop: "1rem", background: "transparent", border: "none",
-                   color: "var(--muted)", cursor: "pointer", fontSize: "0.85rem" }}>
-          Back to Results
-        </button>
-      )}
-    </div>
-  );
-
-  // ── INTERVIEW ────────────────────────────────────────────────────────────
-  if (step === STEPS.INTERVIEW) {
-    const q = questions[current];
-    const progress = Math.round(((current + (feedback ? 1 : 0)) / questions.length) * 100);
-
-    return (
-      <div style={{ maxWidth: 700, margin: "0 auto", padding: "3rem 1.5rem" }}>
-
-        {/* Progress */}
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center",
-                      marginBottom: "0.5rem" }}>
-          <span style={{ fontSize: "0.82rem", color: "var(--muted)" }}>
-            Question {current + 1} of {questions.length}
-          </span>
-          <span style={{ fontSize: "0.82rem", color: "var(--muted)" }}>{domain}</span>
+      {/* Header */}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between",
+                    padding: "1rem 0 0.75rem", borderBottom: "1px solid var(--border)", flexShrink: 0 }}>
+        <div>
+          <span style={{ fontWeight: 800, fontSize: "1rem" }}>AI Mock Interview</span>
+          <span style={{ marginLeft: "0.75rem", fontSize: "0.78rem", color: "var(--muted)" }}>{domain}</span>
         </div>
-        <div style={{ background: "var(--border)", borderRadius: "999px", height: 6, marginBottom: "2rem" }}>
-          <div style={{ width: `${progress}%`, height: "100%", borderRadius: "999px",
-                        background: "var(--accent)", transition: "width 0.4s ease" }} />
-        </div>
-
-        {/* Question card */}
-        <div className="card" style={{ marginBottom: "1.5rem" }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center",
-                        marginBottom: "1rem" }}>
-            <span className={`badge badge-${q.difficulty === "Easy" ? "green" : q.difficulty === "Hard" ? "red" : "yellow"}`}>
-              {q.difficulty}
+        <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
+          {scores.length > 0 && (
+            <span style={{ fontSize: "0.8rem", color: "var(--muted)" }}>
+              Avg: <strong style={{ color: overall >= 70 ? "var(--green)" : overall >= 40 ? "var(--yellow)" : "var(--red)" }}>{overall}</strong>/100
             </span>
-            <span style={{ fontSize: "0.78rem", color: "var(--muted)" }}>{q.skill}</span>
-          </div>
-          <p style={{ fontSize: "1rem", fontWeight: 600, lineHeight: 1.6 }}>{q.question}</p>
+          )}
+          {state && (
+            <button onClick={() => navigate("/results", { state })}
+              style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: "var(--radius)",
+                       color: "var(--muted)", cursor: "pointer", fontSize: "0.8rem", padding: "0.35rem 0.8rem", fontWeight: 600 }}>
+              ← Results
+            </button>
+          )}
         </div>
+      </div>
 
-        {/* Answer area */}
-        {!feedback ? (
-          <>
-            <textarea
-              value={userAnswer}
-              onChange={e => setUserAnswer(e.target.value)}
-              rows={5}
-              placeholder="Type your answer here..."
-              style={{ width: "100%", background: "var(--bg)", border: "1px solid var(--border)",
-                       borderRadius: "var(--radius)", padding: "0.75rem 1rem", color: "var(--text)",
-                       fontSize: "0.9rem", resize: "vertical", lineHeight: 1.6,
-                       fontFamily: "inherit", boxSizing: "border-box", marginBottom: "1rem" }}
-            />
-            {error && <p style={{ color: "var(--red)", marginBottom: "0.75rem", fontSize: "0.85rem" }}>{error}</p>}
-            <div style={{ display: "flex", gap: "0.75rem" }}>
-              <button className="btn-primary" onClick={submitAnswer}
-                      disabled={loading || !userAnswer.trim()}
-                      style={{ flex: 1, padding: "0.75rem" }}>
-                {loading ? "Evaluating..." : "Submit Answer"}
-              </button>
-              <button onClick={() => { setAnswers(prev => [...prev, { ...q, userAnswer: "", score: 0, feedback: "Skipped", correct: false }]); nextQuestion(); }}
-                style={{ padding: "0.75rem 1.2rem", background: "var(--surface)",
-                         border: "1px solid var(--border)", borderRadius: "var(--radius)",
-                         color: "var(--muted)", cursor: "pointer", fontWeight: 600, fontSize: "0.88rem" }}>
-                Skip
-              </button>
+      {/* Chat messages */}
+      <div style={{ flex: 1, overflowY: "auto", padding: "1.5rem 0" }}>
+        {messages.map((msg, i) => <Bubble key={i} msg={msg} />)}
+        {loading && (
+          <div style={{ display: "flex", alignItems: "center", gap: "0.6rem", marginBottom: "1rem" }}>
+            <div style={{ width: 32, height: 32, borderRadius: "50%", background: "var(--accent)",
+                          display: "flex", alignItems: "center", justifyContent: "center",
+                          fontSize: "0.8rem", fontWeight: 800, color: "#fff" }}>AI</div>
+            <div style={{ display: "flex", gap: "4px" }}>
+              {[0,1,2].map(i => (
+                <div key={i} style={{ width: 7, height: 7, borderRadius: "50%", background: "var(--muted)",
+                                      animation: `bounce 1s ${i * 0.2}s infinite` }} />
+              ))}
             </div>
-          </>
+          </div>
+        )}
+        <div ref={bottomRef} />
+      </div>
+
+      {/* Input bar */}
+      <div style={{ borderTop: "1px solid var(--border)", padding: "0.75rem 0 1rem", flexShrink: 0 }}>
+        {done ? (
+          <button className="btn-primary" style={{ width: "100%", padding: "0.85rem", fontSize: "1rem" }}
+                  onClick={() => navigate("/results", { state })}>
+            View Report →
+          </button>
         ) : (
-          /* Feedback card */
-          <div className="card" style={{ marginBottom: "1rem" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: "1rem", marginBottom: "1rem" }}>
-              <ScoreRing score={feedback.score ?? 0} />
-              <div>
-                <p style={{ fontWeight: 700, fontSize: "0.95rem",
-                            color: (feedback.score ?? 0) >= 50 ? "var(--green)" : "var(--red)" }}>
-                  {(feedback.score ?? 0) >= 50 ? "Good answer!" : "Needs improvement"}
-                </p>
-                <p style={{ fontSize: "0.85rem", color: "var(--muted)", marginTop: "0.2rem" }}>
-                  {feedback.feedback}
-                </p>
-              </div>
-            </div>
-
-            {feedback.strongPoints && (
-              <div style={{ background: "#14532d22", borderRadius: "8px", padding: "0.6rem 0.9rem",
-                            marginBottom: "0.5rem" }}>
-                <p style={{ fontSize: "0.78rem", fontWeight: 700, color: "var(--green)",
-                            marginBottom: "0.2rem" }}>Strong points</p>
-                <p style={{ fontSize: "0.82rem", color: "var(--text)" }}>{feedback.strongPoints}</p>
-              </div>
-            )}
-
-            {feedback.improvements && (
-              <div style={{ background: "#450a0a22", borderRadius: "8px", padding: "0.6rem 0.9rem",
-                            marginBottom: "1rem" }}>
-                <p style={{ fontSize: "0.78rem", fontWeight: 700, color: "var(--red)",
-                            marginBottom: "0.2rem" }}>Improvements</p>
-                <p style={{ fontSize: "0.82rem", color: "var(--text)" }}>{feedback.improvements}</p>
-              </div>
-            )}
-
-            <details style={{ marginBottom: "1rem" }}>
-              <summary style={{ fontSize: "0.82rem", color: "var(--muted)", cursor: "pointer" }}>
-                View ideal answer
-              </summary>
-              <p style={{ fontSize: "0.85rem", color: "var(--text)", marginTop: "0.5rem",
-                          lineHeight: 1.6, padding: "0.5rem", background: "var(--bg)",
-                          borderRadius: "6px" }}>{q.idealAnswer}</p>
-            </details>
-
-            <button className="btn-primary" onClick={nextQuestion} style={{ width: "100%" }}>
-              {current + 1 >= questions.length ? "View Report" : "Next Question"}
+          <div style={{ display: "flex", gap: "0.6rem", alignItems: "flex-end" }}>
+            <textarea
+              ref={textareaRef}
+              value={input}
+              onChange={e => setInput(e.target.value)}
+              onKeyDown={handleKey}
+              rows={2}
+              placeholder="Type your answer… (Enter to send, Shift+Enter for new line)"
+              style={{ flex: 1, background: "var(--surface)", border: "1px solid var(--border)",
+                       borderRadius: "var(--radius)", padding: "0.7rem 1rem", color: "var(--text)",
+                       fontSize: "0.9rem", resize: "none", lineHeight: 1.5, fontFamily: "inherit" }}
+            />
+            <button className="btn-primary" onClick={send} disabled={loading || !input.trim()}
+                    style={{ padding: "0.7rem 1.2rem", flexShrink: 0, height: "fit-content" }}>
+              Send ↑
             </button>
           </div>
         )}
       </div>
-    );
-  }
 
-  // ── REPORT ───────────────────────────────────────────────────────────────
-  return (
-    <div style={{ maxWidth: 720, margin: "0 auto", padding: "3rem 1.5rem" }}>
-      <div style={{ textAlign: "center", marginBottom: "2.5rem" }}>
-        <h1 style={{ fontSize: "1.6rem", fontWeight: 800, marginBottom: "0.5rem" }}>
-          Interview Complete
-        </h1>
-        <p style={{ color: "var(--muted)", fontSize: "0.9rem" }}>
-          {answers.filter(a => a.correct).length} of {answers.length} questions answered correctly
-        </p>
-      </div>
-
-      {/* Overall score */}
-      <div className="card" style={{ display: "flex", alignItems: "center", gap: "1.5rem",
-                                     marginBottom: "1.5rem", flexWrap: "wrap" }}>
-        <ScoreRing score={overallScore} />
-        <div style={{ flex: 1 }}>
-          <p style={{ fontWeight: 700, fontSize: "1rem", marginBottom: "0.3rem" }}>Overall Score</p>
-          <p style={{ color: "var(--muted)", fontSize: "0.85rem" }}>
-            {overallScore >= 70 ? "Strong performance! You are well-prepared for this role."
-              : overallScore >= 40 ? "Moderate performance. Focus on the weak areas below."
-              : "Needs significant improvement. Review the topics and practice more."}
-          </p>
-        </div>
-      </div>
-
-      {/* Weak areas */}
-      {weakAreas.length > 0 && (
-        <div className="card" style={{ marginBottom: "1.5rem" }}>
-          <p style={{ fontWeight: 700, fontSize: "0.9rem", marginBottom: "0.75rem" }}>
-            Areas to Improve
-          </p>
-          <div style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem" }}>
-            {weakAreas.map((area, i) => (
-              <span key={i} className="badge badge-red">{area}</span>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Per-question breakdown */}
-      <p style={{ fontWeight: 700, fontSize: "0.9rem", marginBottom: "0.75rem" }}>
-        Question Breakdown
-      </p>
-      <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem", marginBottom: "2rem" }}>
-        {answers.map((a, i) => (
-          <div key={i} className="card" style={{ padding: "1rem" }}>
-            <div style={{ display: "flex", justifyContent: "space-between",
-                          alignItems: "flex-start", gap: "1rem", flexWrap: "wrap" }}>
-              <div style={{ flex: 1 }}>
-                <p style={{ fontSize: "0.88rem", fontWeight: 600, marginBottom: "0.3rem" }}>
-                  {i + 1}. {a.question}
-                </p>
-                <p style={{ fontSize: "0.78rem", color: "var(--muted)" }}>{a.feedback}</p>
-              </div>
-              <div style={{ textAlign: "center", flexShrink: 0 }}>
-                <span style={{ fontWeight: 900, fontSize: "1.1rem",
-                               color: (a.score ?? 0) >= 50 ? "var(--green)" : "var(--red)" }}>
-                  {a.score ?? 0}
-                </span>
-                <p style={{ fontSize: "0.65rem", color: "var(--muted)" }}>/ 100</p>
-              </div>
-            </div>
-          </div>
-        ))}
-      </div>
-
-      <div style={{ display: "flex", gap: "0.75rem", flexWrap: "wrap" }}>
-        <button className="btn-primary" onClick={() => { setStep(STEPS.INTRO); setAnswers([]); }}
-                style={{ flex: 1, padding: "0.75rem" }}>
-          Retry Interview
-        </button>
-        {state && (
-          <button onClick={() => navigate("/results", { state })}
-            style={{ flex: 1, padding: "0.75rem", background: "var(--surface)",
-                     border: "1px solid var(--border)", borderRadius: "var(--radius)",
-                     color: "var(--text)", cursor: "pointer", fontWeight: 600 }}>
-            Back to Results
-          </button>
-        )}
-      </div>
+      <style>{`
+        @keyframes bounce {
+          0%, 80%, 100% { transform: translateY(0); }
+          40% { transform: translateY(-6px); }
+        }
+      `}</style>
     </div>
   );
 }

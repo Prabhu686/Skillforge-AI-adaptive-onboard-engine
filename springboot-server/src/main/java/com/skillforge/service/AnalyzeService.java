@@ -37,12 +37,12 @@ public class AnalyzeService {
 
     public List<String> findGap(List<String> resumeSkills, List<String> jdSkills) {
         Set<String> have = resumeSkills.stream().map(String::toLowerCase).collect(Collectors.toSet());
-        return jdSkills.stream().filter(s -> !have.contains(s.toLowerCase())).toList();
+        return jdSkills.stream().filter(s -> !have.contains(s.toLowerCase())).collect(Collectors.toList());
     }
 
     public List<String> findMatched(List<String> resumeSkills, List<String> jdSkills) {
         Set<String> have = resumeSkills.stream().map(String::toLowerCase).collect(Collectors.toSet());
-        return jdSkills.stream().filter(s -> have.contains(s.toLowerCase())).toList();
+        return jdSkills.stream().filter(s -> have.contains(s.toLowerCase())).collect(Collectors.toList());
     }
 
     public String detectDomain(List<String> skills) {
@@ -59,7 +59,7 @@ public class AnalyzeService {
         double coverage = jdSkills.isEmpty() ? 0 : (double) matched / jdSkills.size();
 
         String domain = detectDomain(jdSkills);
-        List<String> bucket = DOMAIN_BUCKETS.getOrDefault(domain, List.of());
+        List<String> bucket = DOMAIN_BUCKETS.getOrDefault(domain, new ArrayList<>());
         int depthRaw = (int) bucket.stream().filter(s -> have.contains(s.toLowerCase())).count();
         double depth = Math.min(depthRaw / 8.0, 1.0);
 
@@ -73,9 +73,18 @@ public class AnalyzeService {
             : score >= 55 ? "Moderate match. Focus on top-priority skills."
             : score >= 40 ? "Partial match. Significant upskilling needed." : "Low match. Build foundational skills first.";
 
-        return Map.of("score", score, "grade", grade, "feedback", feedback,
-            "breakdown", Map.of("matched", matched, "total", jdSkills.size(),
-                "coverage", (int)(coverage*100), "depthRaw", depthRaw, "domainsHit", domainsHit));
+        Map<String, Object> breakdown = new LinkedHashMap<>();
+        breakdown.put("matched", matched);
+        breakdown.put("total", jdSkills.size());
+        breakdown.put("coverage", (int)(coverage * 100));
+        breakdown.put("depthRaw", depthRaw);
+        breakdown.put("domainsHit", domainsHit);
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("score", score);
+        result.put("grade", grade);
+        result.put("feedback", feedback);
+        result.put("breakdown", breakdown);
+        return result;
     }
 
     public Map<String, Object> estimateSalary(List<String> resumeSkills, List<String> jdSkills) {
@@ -86,9 +95,20 @@ public class AnalyzeService {
         double matchRatio = jdSkills.isEmpty() ? 0 : (double) matched / jdSkills.size();
         double cMin = Math.round((range[0] + (range[1] - range[0]) * matchRatio * 0.5) * 10.0) / 10.0;
         double cMax = Math.round((range[0] + (range[1] - range[0]) * Math.min(matchRatio + 0.2, 1)) * 10.0) / 10.0;
-        return Map.of("domain", domain, "roleRange", Map.of("min", range[0], "max", range[1]),
-            "candidateRange", Map.of("min", cMin, "max", cMax),
-            "currency", "INR", "unit", "LPA", "matchRatio", (int)(matchRatio * 100));
+        Map<String, Object> salary = new LinkedHashMap<>();
+        salary.put("domain", domain);
+        Map<String, Object> roleRange = new LinkedHashMap<>();
+        roleRange.put("min", range[0]);
+        roleRange.put("max", range[1]);
+        Map<String, Object> candidateRange = new LinkedHashMap<>();
+        candidateRange.put("min", cMin);
+        candidateRange.put("max", cMax);
+        salary.put("roleRange", roleRange);
+        salary.put("candidateRange", candidateRange);
+        salary.put("currency", "INR");
+        salary.put("unit", "LPA");
+        salary.put("matchRatio", (int)(matchRatio * 100));
+        return salary;
     }
 
     public List<Map<String, Object>> generateRoadmap(List<String> missing, List<String> resumeSkills) {
@@ -97,34 +117,36 @@ public class AnalyzeService {
                 .filter(r -> r.toLowerCase().contains(skill.toLowerCase().substring(0, Math.min(3, skill.length())))).count();
             String level = related >= 6 ? "Advanced" : related >= 3 ? "Intermediate" : "Beginner";
             int priority = (int)(Math.random() * 5) + 1;
-            Map<String, Object> m = new HashMap<>();
+            Map<String, Object> m = new LinkedHashMap<>();
             m.put("skill", skill);
             m.put("level", level);
             m.put("priority", priority);
             return m;
-        }).sorted(Comparator.comparingInt(m -> -(int) m.get("priority"))).toList();
+        }).sorted(Comparator.comparingInt(m -> -(int) m.get("priority"))).collect(Collectors.toList());
     }
 
     public Map<String, Object> getInterviewTips(List<String> jdSkills) {
         String domain = detectDomain(jdSkills);
-        Map<String, List<String>> tips = Map.of(
-            "Frontend", List.of("Revise browser rendering pipeline and virtual DOM internals.",
-                "Practice building a small React app with hooks and context from scratch.",
-                "Be ready to explain CSS specificity, flexbox vs grid, and responsive design."),
-            "Backend", List.of("Understand REST vs GraphQL trade-offs and when to use each.",
-                "Practice designing a RESTful API with proper status codes and error handling.",
-                "Revise database indexing, query optimisation, and N+1 problem."),
-            "DevOps", List.of("Explain the difference between Docker and a VM.",
-                "Walk through a CI/CD pipeline you have built or would build.",
-                "Study Kubernetes core objects: Pod, Deployment, Service, Ingress."),
-            "AI", List.of("Revise bias-variance trade-off, overfitting, and regularisation.",
-                "Be ready to explain gradient descent and backpropagation intuitively.",
-                "Study transformer architecture — attention mechanism is frequently asked."),
-            "General", List.of("Prepare a concise 2-minute introduction covering your stack and projects.",
-                "Practice STAR method for behavioural questions.",
-                "Study time complexity (Big-O) for common algorithms.")
-        );
-        return Map.of("domain", domain, "tips", tips.getOrDefault(domain, tips.get("General")));
+        Map<String, List<String>> tips = new HashMap<>();
+        tips.put("Frontend", Arrays.asList("Revise browser rendering pipeline and virtual DOM internals.",
+            "Practice building a small React app with hooks and context from scratch.",
+            "Be ready to explain CSS specificity, flexbox vs grid, and responsive design."));
+        tips.put("Backend", Arrays.asList("Understand REST vs GraphQL trade-offs and when to use each.",
+            "Practice designing a RESTful API with proper status codes and error handling.",
+            "Revise database indexing, query optimisation, and N+1 problem."));
+        tips.put("DevOps", Arrays.asList("Explain the difference between Docker and a VM.",
+            "Walk through a CI/CD pipeline you have built or would build.",
+            "Study Kubernetes core objects: Pod, Deployment, Service, Ingress."));
+        tips.put("AI", Arrays.asList("Revise bias-variance trade-off, overfitting, and regularisation.",
+            "Be ready to explain gradient descent and backpropagation intuitively.",
+            "Study transformer architecture — attention mechanism is frequently asked."));
+        tips.put("General", Arrays.asList("Prepare a concise 2-minute introduction covering your stack and projects.",
+            "Practice STAR method for behavioural questions.",
+            "Study time complexity (Big-O) for common algorithms."));
+        Map<String, Object> tipResult = new LinkedHashMap<>();
+        tipResult.put("domain", domain);
+        tipResult.put("tips", tips.getOrDefault(domain, tips.get("General")));
+        return tipResult;
     }
 
     public List<AnalysisResult> getAllResults() {

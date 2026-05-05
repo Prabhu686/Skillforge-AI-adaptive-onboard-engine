@@ -91,6 +91,6 @@ public class SkillExtractorService {
         String upper = text.toUpperCase();
         return SKILL_TAXONOMY.stream()
                 .filter(skill -> upper.contains(skill.toUpperCase()))
-                .toList();
+                .collect(java.util.stream.Collectors.toList());
     }
 }

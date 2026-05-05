@@ -1,9 +1,11 @@
+const BASE = import.meta.env.VITE_API_URL ?? "";
+
 export async function analyzeDocuments(resumeFile, jdFile) {
   const form = new FormData();
   form.append("resume", resumeFile);
   form.append("jd",     jdFile);
 
-  const res = await fetch("/api/analyze", { method: "POST", body: form });
+  const res = await fetch(`${BASE}/api/analyze`, { method: "POST", body: form });
   if (!res.ok) {
     const { error } = await res.json().catch(() => ({}));
     throw new Error(error || `Server error ${res.status}`);

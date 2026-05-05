@@ -222,9 +222,12 @@ public class InterviewService {
         long hits  = Arrays.stream(keywords).filter(k -> k.length() > 3 && userLower.contains(k)).count();
         long total = Arrays.stream(keywords).filter(k -> k.length() > 3).count();
         int score  = total > 0 ? (int) Math.round((double) hits / total * 100) : 0;
-        return Map.of("score", score, "correct", score >= 50,
-            "feedback", score >= 50 ? "Good answer covering key concepts." : "Review the ideal answer for key concepts.",
-            "strongPoints", score >= 50 ? "Covered main points." : "",
-            "improvements", score < 50 ? "Focus on: " + idealAnswer.substring(0, Math.min(80, idealAnswer.length())) : "");
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("score",        score);
+        result.put("correct",      score >= 50);
+        result.put("feedback",     score >= 50 ? "Good answer covering key concepts." : "Review the ideal answer for key concepts.");
+        result.put("strongPoints", score >= 50 ? "Covered main points." : "");
+        result.put("improvements", score < 50  ? "Focus on: " + idealAnswer.substring(0, Math.min(80, idealAnswer.length())) : "");
+        return result;
     }
 }

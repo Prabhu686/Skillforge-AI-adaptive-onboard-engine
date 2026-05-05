@@ -1,8 +1,8 @@
 import { useState, useEffect, useRef } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 
-const synth = window.speechSynthesis;
-const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+const synth = typeof window !== "undefined" ? window.speechSynthesis : null;
+const SR = typeof window !== "undefined" ? (window.SpeechRecognition || window.webkitSpeechRecognition) : null;
 
 function speak(text, onEnd) {
   synth.cancel();
@@ -46,6 +46,8 @@ function ProgressBar({ current, total }) {
   );
 }
 
+const BASE = import.meta.env.VITE_API_URL ?? "";
+
 export default function Quiz() {
   const { state }  = useLocation();
   const navigate   = useNavigate();
@@ -73,7 +75,7 @@ export default function Quiz() {
   // Load questions once
   useEffect(() => {
     if (!skills.length) { navigate("/upload"); return; }
-    fetch("/api/analyze/quiz", {
+    fetch(`${BASE}/api/analyze/quiz`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ skills, count: 10 }),
@@ -169,7 +171,7 @@ export default function Quiz() {
     const correctAnswer = questions[idx].answer;
     let result;
     try {
-      const res = await fetch("/api/analyze/quiz/evaluate", {
+      const res = await fetch(`${BASE}/api/analyze/quiz/evaluate`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ userAnswer: ans, correctAnswer }),

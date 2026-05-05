@@ -27,10 +27,10 @@ public class ResumeBuilderService {
         String projects   = str(data, "projects");
 
         List<String> skillList = Arrays.stream(skills.split(","))
-            .map(String::trim).filter(s -> !s.isEmpty()).toList();
+            .map(String::trim).filter(s -> !s.isEmpty()).collect(java.util.stream.Collectors.toList());
 
         int filled = 0;
-        for (String s : List.of(summary, experience, education, skills, projects))
+        for (String s : Arrays.asList(summary, experience, education, skills, projects))
             if (!s.isBlank()) filled++;
         int completeness = Math.round((float) filled / 5 * 30);
 
@@ -54,10 +54,16 @@ public class ResumeBuilderService {
         if (!combined.matches(".*\\d+.*")) warnings.add("Add numbers to quantify your impact.");
         if (verbsFound == 0) warnings.add("Use action verbs in Experience (e.g. Built, Developed, Led).");
 
-        return Map.of("total", total,
-            "breakdown", Map.of("completeness", completeness, "keywordScore", keywordScore,
-                                "verbScore", verbScore, "quantScore", quantScore),
-            "warnings", warnings);
+        Map<String, Object> breakdown = new LinkedHashMap<>();
+        breakdown.put("completeness", completeness);
+        breakdown.put("keywordScore", keywordScore);
+        breakdown.put("verbScore", verbScore);
+        breakdown.put("quantScore", quantScore);
+        Map<String, Object> atsResult = new LinkedHashMap<>();
+        atsResult.put("total", total);
+        atsResult.put("breakdown", breakdown);
+        atsResult.put("warnings", warnings);
+        return atsResult;
     }
 
     // ── DOCX generation ────────────────────────────────────────────────────
@@ -302,9 +308,9 @@ public class ResumeBuilderService {
             return list.stream()
                 .filter(i -> i instanceof Map)
                 .map(i -> (Map<String, String>) i)
-                .toList();
+                .collect(java.util.stream.Collectors.toList());
         }
-        return List.of();
+        return new ArrayList<>();
     }
 
     private int wordCount(String s) {

@@ -1,6 +1,8 @@
 import { useState, useEffect } from "react";
 import { useLocation } from "react-router-dom";
 
+const BASE = import.meta.env.VITE_API_URL ?? "";
+
 // ── ATS Ring ────────────────────────────────────────────────────────────────
 function ATSRing({ score }) {
   const r = 44, circ = 2 * Math.PI * r;
@@ -135,7 +137,7 @@ export default function Builder() {
   useEffect(() => {
     const t = setTimeout(async () => {
       try {
-        const res = await fetch("/api/analyze/build", {
+        const res = await fetch(`${BASE}/api/analyze/build`, {
           method: "POST", headers: { "Content-Type": "application/json" },
           body: JSON.stringify(flattenForATS(form)),
         });
@@ -170,7 +172,7 @@ export default function Builder() {
     setGenError("");
     setDownloadUrl("");
     try {
-      const res = await fetch("/api/analyze/build/download", {
+      const res = await fetch(`${BASE}/api/analyze/build/download`, {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify(form),
       });

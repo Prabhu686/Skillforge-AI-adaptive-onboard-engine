@@ -5,6 +5,7 @@ const { generateRoadmap } = require("../utils/roadmap");
 const { estimateSalary, scoreResume, getInterviewTips } = require("../utils/insights");
 const { scoreATS, buildResumeDocx } = require("../utils/resumeBuilder");
 const { generateQuiz, evaluateAnswer } = require("../utils/quiz");
+const { generateQuestions, evaluateAnswer: evalInterview } = require("../utils/interview");
 
 async function analyze(req, res) {
   try {
@@ -118,4 +119,30 @@ function quizEvaluate(req, res) {
   }
 }
 
-module.exports = { analyze, compare, build, buildDownload, quiz, quizEvaluate };
+// POST /api/analyze/interview/questions
+function interviewQuestions(req, res) {
+  try {
+    const { skills = [], domain = "General", count = 5 } = req.body;
+    const questions = generateQuestions(skills, domain, count);
+    return res.json({ questions });
+  } catch (err) {
+    return res.status(500).json({ error: "Failed to generate questions." });
+  }
+}
+
+// POST /api/analyze/interview/evaluate
+function interviewEvaluate(req, res) {
+  try {
+    const { question, idealAnswer, userAnswer } = req.body;
+    return res.json(evalInterview(question, idealAnswer, userAnswer));
+  } catch (err) {
+    return res.status(500).json({ error: "Evaluation failed." });
+  }
+}
+
+// POST /api/analyze/interview/save
+function interviewSave(req, res) {
+  return res.json({ ok: true });
+}
+
+module.exports = { analyze, compare, build, buildDownload, quiz, quizEvaluate, interviewQuestions, interviewEvaluate, interviewSave };

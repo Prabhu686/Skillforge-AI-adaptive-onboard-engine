@@ -1,5 +1,7 @@
 import { useState, useRef } from "react";
 
+const BASE = import.meta.env.VITE_API_URL ?? "";
+
 function FileZone({ label, file, onFile }) {
   const ref = useRef();
   return (
@@ -132,7 +134,7 @@ export default function Compare() {
       form.append("resume1", r1);
       form.append("resume2", r2);
       form.append("jd", jd);
-      const res = await fetch("/api/analyze/compare", { method: "POST", body: form });
+      const res = await fetch(`${BASE}/api/analyze/compare`, { method: "POST", body: form });
       if (!res.ok) throw new Error((await res.json()).error ?? `Error ${res.status}`);
       setResult(await res.json());
     } catch (e) { setError(e.message); }

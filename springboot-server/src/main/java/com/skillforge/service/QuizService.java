@@ -171,8 +171,12 @@ public class QuizService {
 
     // ── Evaluate answer ────────────────────────────────────────────────────
     public Map<String, Object> evaluateAnswer(String userAnswer, String correctAnswer) {
-        if (userAnswer == null || userAnswer.trim().length() < 3)
-            return Map.of("correct", false, "score", 0);
+        if (userAnswer == null || userAnswer.trim().length() < 3) {
+            Map<String, Object> empty = new LinkedHashMap<>();
+            empty.put("correct", false);
+            empty.put("score", 0);
+            return empty;
+        }
 
         String[] keywords = correctAnswer.toLowerCase()
             .replaceAll("[^a-z0-9\\s]", " ").split("\\s+");
@@ -183,7 +187,10 @@ public class QuizService {
         long total = Arrays.stream(keywords).filter(k -> k.length() > 3).count();
 
         int score = total > 0 ? (int) Math.round((double) hits / total * 100) : 0;
-        return Map.of("correct", score >= 35, "score", score);
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("correct", score >= 35);
+        result.put("score", score);
+        return result;
     }
 
     // ── Persist quiz result ────────────────────────────────────────────────
