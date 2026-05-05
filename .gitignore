@@ -1,23 +1,12 @@
-# Node
 node_modules/
-npm-debug.log*
-
-# Build outputs
-client/dist/
-server/dist/
-
-# Environment
+dist/
 .env
-*.env.local
+*.local
 
-# Java / Maven build artifacts
+# Spring Boot
 springboot-server/target/
 
-# OS
-.DS_Store
-Thumbs.db
-
-# IDE
-.idea/
-*.iml
-.vscode/
+# Python
+__pycache__/
+*.pyc
+.pytest_cache/
